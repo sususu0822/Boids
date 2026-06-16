@@ -9,25 +9,37 @@ public class BoidManager : MonoBehaviour {
 
     public BoidSettings settings;
     public ComputeShader compute;
-    Boid[] boids;
+    public Transform endPoint;
+    public float arriveDistance = .5f;
+    List<Boid> boids;
 
     void Start () {
         // 場景開始時收集所有 boid，並套用共用設定。
-        boids = FindObjectsOfType<Boid> ();
+        boids = new List<Boid> (FindObjectsOfType<Boid> ());
         foreach (Boid b in boids) {
-            b.Initialize (settings, null);
+            b.Initialize (settings, endPoint, arriveDistance);
         }
 
     }
 
     void Update () {
         if (boids != null) {
+            // Destroy 後的 boid 會在下一幀變成 null，先清掉再送進 GPU。
+            for (int i = boids.Count - 1; i >= 0; i--) {
+                if (boids[i] == null) {
+                    boids.RemoveAt (i);
+                }
+            }
 
-            int numBoids = boids.Length;
+            if (boids.Count == 0) {
+                return;
+            }
+
+            int numBoids = boids.Count;
             var boidData = new BoidData[numBoids];
 
             // 將每隻 boid 的位置與朝向打包，準備送到 GPU 計算鄰居資訊。
-            for (int i = 0; i < boids.Length; i++) {
+            for (int i = 0; i < boids.Count; i++) {
                 boidData[i].position = boids[i].position;
                 boidData[i].direction = boids[i].forward;
             }
@@ -38,7 +50,7 @@ public class BoidManager : MonoBehaviour {
 
             // 傳入本幀 boid 資料與感知半徑，讓 compute shader 平行累加鄰居統計。
             compute.SetBuffer (0, "boids", boidBuffer);
-            compute.SetInt ("numBoids", boids.Length);
+            compute.SetInt ("numBoids", boids.Count);
             compute.SetFloat ("viewRadius", settings.perceptionRadius);
             compute.SetFloat ("avoidRadius", settings.avoidanceRadius);
 
@@ -49,7 +61,7 @@ public class BoidManager : MonoBehaviour {
             // 從 GPU 取回每隻 boid 的平均方向、中心點、分離方向與鄰居數。
             boidBuffer.GetData (boidData);
 
-            for (int i = 0; i < boids.Length; i++) {
+            for (int i = 0; i < boids.Count; i++) {
                 boids[i].avgFlockHeading = boidData[i].flockHeading;
                 boids[i].centreOfFlockmates = boidData[i].flockCentre;
                 boids[i].avgAvoidanceHeading = boidData[i].avoidanceHeading;
@@ -61,6 +73,18 @@ public class BoidManager : MonoBehaviour {
             // 每幀建立的 ComputeBuffer 必須釋放，避免 GPU 記憶體累積。
             boidBuffer.Release ();
         }
+    }
+
+    void OnDrawGizmos () {
+        if (endPoint == null) {
+            return;
+        }
+
+        // 顯示終點抵達判定範圍，半徑與 arriveDistance 相同。
+        Gizmos.color = new Color (0f, 1f, 0.2f, 0.25f);
+        Gizmos.DrawSphere (endPoint.position, arriveDistance);
+        Gizmos.color = new Color (0f, 1f, 0.2f, 1f);
+        Gizmos.DrawWireSphere (endPoint.position, arriveDistance);
     }
 
     // 與 BoidCompute.compute 中的 Boid struct 對應，用來在 CPU/GPU 間傳遞資料。

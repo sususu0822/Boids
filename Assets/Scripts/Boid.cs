@@ -28,15 +28,17 @@ public class Boid : MonoBehaviour {
     Material material;
     Transform cachedTransform;
     Transform target;
+    float arriveDistance;
 
     void Awake () {
         material = transform.GetComponentInChildren<MeshRenderer> ().material;
         cachedTransform = transform;
     }
 
-    public void Initialize (BoidSettings settings, Transform target) {
+    public void Initialize (BoidSettings settings, Transform target, float arriveDistance) {
         this.target = target;
         this.settings = settings;
+        this.arriveDistance = arriveDistance;
 
         // 以場景中的初始 transform 作為模擬起點。
         position = cachedTransform.position;
@@ -94,10 +96,36 @@ public class Boid : MonoBehaviour {
         speed = Mathf.Clamp (speed, settings.minSpeed, settings.maxSpeed);
         velocity = dir * speed;
 
+        Vector3 previousPosition = position;
         cachedTransform.position += velocity * Time.deltaTime;
         cachedTransform.forward = dir;
         position = cachedTransform.position;
         forward = dir;
+
+        // 抵達終點範圍後移除物件，完成「從起點到終點後消失」的規則。
+        if (HasReachedTarget (previousPosition, position)) {
+            Debug.Log ($"{name} 已抵達終點：{target.name}");
+            Destroy (gameObject);
+        }
+    }
+
+    bool HasReachedTarget (Vector3 previousPosition, Vector3 currentPosition) {
+        if (target == null) {
+            return false;
+        }
+
+        Vector3 movement = currentPosition - previousPosition;
+        float movementSqrMagnitude = movement.sqrMagnitude;
+
+        if (movementSqrMagnitude <= Mathf.Epsilon) {
+            return (target.position - currentPosition).sqrMagnitude <= arriveDistance * arriveDistance;
+        }
+
+        // 檢查上一幀到這一幀的移動線段是否穿過終點 sphere。
+        Vector3 previousToTarget = target.position - previousPosition;
+        float closestPointT = Mathf.Clamp01 (Vector3.Dot (previousToTarget, movement) / movementSqrMagnitude);
+        Vector3 closestPoint = previousPosition + movement * closestPointT;
+        return (target.position - closestPoint).sqrMagnitude <= arriveDistance * arriveDistance;
     }
 
     bool IsHeadingForCollision () {
