@@ -1,6 +1,8 @@
 ﻿#pragma kernel CSMain
+// 需與 BoidManager.cs 裡的 threadGroupSize 保持一致。
 static const int threadGroupSize = 1024;
 
+// 與 BoidManager.BoidData 的欄位順序對應，用於 CPU/GPU 間傳遞 boid 資料。
 struct Boid {
     float3 position;
     float3 direction;
@@ -19,17 +21,20 @@ float avoidRadius;
 [numthreads(threadGroupSize,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+    // 每個 thread 負責一隻 boid，逐一檢查其他 boid 是否在感知半徑內。
     for (int indexB = 0; indexB < numBoids; indexB ++) {
         if (id.x != indexB) {
             Boid boidB = boids[indexB];
             float3 offset = boidB.position - boids[id.x].position;
             float sqrDst = offset.x * offset.x + offset.y * offset.y + offset.z * offset.z;
 
+            // 在 viewRadius 內的 boid 會影響對齊與聚合。
             if (sqrDst < viewRadius * viewRadius) {
                 boids[id.x].numFlockmates += 1;
                 boids[id.x].flockHeading += boidB.direction;
                 boids[id.x].flockCentre += boidB.position;
 
+                // 在 avoidRadius 內的 boid 會額外產生分離方向，距離越近影響越大。
                 if (sqrDst < avoidRadius * avoidRadius) {
                     boids[id.x].separationHeading -= offset / sqrDst;
                 }

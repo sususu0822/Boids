@@ -4,12 +4,14 @@ using UnityEngine;
 
 public static class BoidHelper {
 
+    // 預先建立一組均勻分布在球面上的方向，供避障時快速尋找可通行方向。
     const int numViewDirections = 300;
     public static readonly Vector3[] directions;
 
     static BoidHelper () {
         directions = new Vector3[BoidHelper.numViewDirections];
 
+        // 使用黃金角分布，讓方向點平均覆蓋整個球面。
         float goldenRatio = (1 + Mathf.Sqrt (5)) / 2;
         float angleIncrement = Mathf.PI * 2 * goldenRatio;
 
