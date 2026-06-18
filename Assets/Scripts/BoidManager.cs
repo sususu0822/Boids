@@ -13,13 +13,35 @@ public class BoidManager : MonoBehaviour {
     public float arriveDistance = .5f;
     List<Boid> boids;
 
+    void Awake () {
+        boids = new List<Boid> ();
+    }
+
     void Start () {
-        // 場景開始時收集所有 boid，並套用共用設定。
-        boids = new List<Boid> (FindObjectsOfType<Boid> ());
-        foreach (Boid b in boids) {
-            b.Initialize (settings, endPoint, arriveDistance);
+        // 場景開始時收集既有 boid，動態生成的 boid 則由 Spawner 呼叫 RegisterBoid。
+        Boid[] sceneBoids = FindObjectsOfType<Boid> ();
+        foreach (Boid b in sceneBoids) {
+            RegisterBoid (b);
         }
 
+    }
+
+    public void RegisterBoid (Boid boid) {
+        if (boid == null) {
+            return;
+        }
+
+        if (boids == null) {
+            boids = new List<Boid> ();
+        }
+
+        if (boids.Contains (boid)) {
+            return;
+        }
+
+        // 新生成的 boid 必須初始化並加入清單，否則不會被 Update 推進。
+        boid.Initialize (settings, endPoint, arriveDistance);
+        boids.Add (boid);
     }
 
     void Update () {

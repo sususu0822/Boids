@@ -8,6 +8,7 @@ public class Spawner : MonoBehaviour {
     public enum GizmoType { Never, SelectedOnly, Always }
 
     public Boid prefab;
+    public BoidManager boidManager;
     public Transform startPoint;
     public float spawnRadius = 10;
     public int spawnCount = 10;
@@ -16,14 +17,37 @@ public class Spawner : MonoBehaviour {
 
     void Awake () {
         // 在球形範圍內隨機生成 boid，並給每隻不同的初始朝向。
-        Transform spawnOrigin = startPoint != null ? startPoint : transform;
         for (int i = 0; i < spawnCount; i++) {
-            Vector3 pos = spawnOrigin.position + Random.insideUnitSphere * spawnRadius;
-            Boid boid = Instantiate (prefab);
-            boid.transform.position = pos;
-            boid.transform.forward = Random.insideUnitSphere;
+            SpawnBoid ();
+        }
+    }
 
-            boid.SetColour (colour);
+    public void InstantiateBoid () {
+        // 這個方法目前沒被呼叫，但可以在需要時用來動態生成更多 boid。
+        for (int i = 0; i < spawnCount; i++) {
+            SpawnBoid ();
+        }
+    }
+
+    Boid SpawnBoid () {
+        Transform spawnOrigin = startPoint != null ? startPoint : transform;
+        Vector3 pos = spawnOrigin.position + Random.insideUnitSphere * spawnRadius;
+        Boid boid = Instantiate (prefab);
+        boid.transform.position = pos;
+        boid.transform.forward = Random.onUnitSphere;
+
+        boid.SetColour (colour);
+        RegisterWithManager (boid);
+        return boid;
+    }
+
+    void RegisterWithManager (Boid boid) {
+        if (boidManager == null) {
+            boidManager = FindObjectOfType<BoidManager> ();
+        }
+
+        if (boidManager != null) {
+            boidManager.RegisterBoid (boid);
         }
     }
 
